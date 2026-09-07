@@ -9856,12 +9856,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get accountCutoverOpenStore => 'Mağazayı aç';
 
   @override
-  String get chatScopeToday => 'Bugün';
-
-  @override
-  String get chatScopeThisWeek => 'Bu hafta';
-
-  @override
   String chatScopeAbout(String title) {
     return 'Hakkında: $title';
   }
@@ -9930,4 +9924,46 @@ class AppLocalizationsTr extends AppLocalizations {
   String conversationsNotCapturedCount(int count) {
     return 'Kaydedilmedi ($count)';
   }
+
+  @override
+  String get transcriptionNoAudio => 'Transkripsiyon ses almıyor';
+
+  @override
+  String get tapPlusToStartRecording => 'Tap + to start recording';
+
+  @override
+  String get chatBlockTask => 'Görev';
+
+  @override
+  String get chatBlockGoal => 'Hedef';
+
+  @override
+  String get chatBlockConversation => 'Konuşma';
+
+  @override
+  String get chatBlockMemory => 'Anı';
+
+  @override
+  String get chatBlockQuestion => 'Soru';
+
+  @override
+  String get chatBlockOpenInGoals => 'Hedefler’de aç';
+
+  @override
+  String get chatBlockOpenConversation => 'Konuşmayı aç';
+
+  @override
+  String get chatBlockOpenInMemories => 'Anılar’da aç';
+
+  @override
+  String get chatBlockUnavailable => 'Artık kullanılamıyor';
+
+  @override
+  String get chatBlockRecommendedNextSteps => 'Önerilen sonraki adımlar';
+
+  @override
+  String get couldNotLoadMemories => 'Anılar yüklenemedi';
+
+  @override
+  String get couldNotLoadKnowledgeGraph => 'Bilgi grafiği yüklenemedi';
 }

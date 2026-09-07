@@ -9893,12 +9893,6 @@ class AppLocalizationsTe extends AppLocalizations {
   String get accountCutoverOpenStore => 'स्टोर खोलें';
 
   @override
-  String get chatScopeToday => 'ఈ రోజు';
-
-  @override
-  String get chatScopeThisWeek => 'ఈ వారం';
-
-  @override
   String chatScopeAbout(String title) {
     return '$title గురించి';
   }
@@ -9967,4 +9961,46 @@ class AppLocalizationsTe extends AppLocalizations {
   String conversationsNotCapturedCount(int count) {
     return 'రికార్డ్ కాలేదు ($count)';
   }
+
+  @override
+  String get transcriptionNoAudio => 'ట్రాన్స్‌క్రిప్షన్ ఆడియో స్వీకరించడం లేదు';
+
+  @override
+  String get tapPlusToStartRecording => 'Tap + to start recording';
+
+  @override
+  String get chatBlockTask => 'పని';
+
+  @override
+  String get chatBlockGoal => 'లక్ష్యం';
+
+  @override
+  String get chatBlockConversation => 'సంభాషణ';
+
+  @override
+  String get chatBlockMemory => 'జ్ఞాపకం';
+
+  @override
+  String get chatBlockQuestion => 'ప్రశ్న';
+
+  @override
+  String get chatBlockOpenInGoals => 'లక్ష్యాలలో తెరవండి';
+
+  @override
+  String get chatBlockOpenConversation => 'సంభాషణను తెరవండి';
+
+  @override
+  String get chatBlockOpenInMemories => 'జ్ఞాపకాలలో తెరవండి';
+
+  @override
+  String get chatBlockUnavailable => 'ఇకపై అందుబాటులో లేదు';
+
+  @override
+  String get chatBlockRecommendedNextSteps => 'సిఫార్సు చేసిన తదుపరి దశలు';
+
+  @override
+  String get couldNotLoadMemories => 'జ్ఞాపకాలను లోడ్ చేయలేకపోయాం';
+
+  @override
+  String get couldNotLoadKnowledgeGraph => 'నాలెడ్జ్ గ్రాఫ్‌ను లోడ్ చేయలేకపోయాం';
 }

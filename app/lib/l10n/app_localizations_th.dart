@@ -9789,12 +9789,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get accountCutoverOpenStore => 'เปิดสโตร์';
 
   @override
-  String get chatScopeToday => 'วันนี้';
-
-  @override
-  String get chatScopeThisWeek => 'สัปดาห์นี้';
-
-  @override
   String chatScopeAbout(String title) {
     return 'เกี่ยวกับ: $title';
   }
@@ -9861,4 +9855,46 @@ class AppLocalizationsTh extends AppLocalizations {
   String conversationsNotCapturedCount(int count) {
     return 'ไม่ได้บันทึก ($count)';
   }
+
+  @override
+  String get transcriptionNoAudio => 'การถอดเสียงไม่ได้รับเสียง';
+
+  @override
+  String get tapPlusToStartRecording => 'Tap + to start recording';
+
+  @override
+  String get chatBlockTask => 'งาน';
+
+  @override
+  String get chatBlockGoal => 'เป้าหมาย';
+
+  @override
+  String get chatBlockConversation => 'บทสนทนา';
+
+  @override
+  String get chatBlockMemory => 'ความทรงจำ';
+
+  @override
+  String get chatBlockQuestion => 'คำถาม';
+
+  @override
+  String get chatBlockOpenInGoals => 'เปิดในเป้าหมาย';
+
+  @override
+  String get chatBlockOpenConversation => 'เปิดบทสนทนา';
+
+  @override
+  String get chatBlockOpenInMemories => 'เปิดในความทรงจำ';
+
+  @override
+  String get chatBlockUnavailable => 'ไม่พร้อมใช้งานอีกต่อไป';
+
+  @override
+  String get chatBlockRecommendedNextSteps => 'ขั้นตอนถัดไปที่แนะนำ';
+
+  @override
+  String get couldNotLoadMemories => 'ไม่สามารถโหลดความทรงจำได้';
+
+  @override
+  String get couldNotLoadKnowledgeGraph => 'ไม่สามารถโหลดกราฟความรู้ได้';
 }

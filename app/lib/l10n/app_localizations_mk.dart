@@ -9897,12 +9897,6 @@ class AppLocalizationsMk extends AppLocalizations {
   String get accountCutoverOpenStore => 'Otevřít obchod';
 
   @override
-  String get chatScopeToday => 'Денес';
-
-  @override
-  String get chatScopeThisWeek => 'Оваа недела';
-
-  @override
   String chatScopeAbout(String title) {
     return 'За: $title';
   }
@@ -9971,4 +9965,46 @@ class AppLocalizationsMk extends AppLocalizations {
   String conversationsNotCapturedCount(int count) {
     return 'Не е снимено ($count)';
   }
+
+  @override
+  String get transcriptionNoAudio => 'Транскрипцијата не прима аудио';
+
+  @override
+  String get tapPlusToStartRecording => 'Tap + to start recording';
+
+  @override
+  String get chatBlockTask => 'Задача';
+
+  @override
+  String get chatBlockGoal => 'Цел';
+
+  @override
+  String get chatBlockConversation => 'Разговор';
+
+  @override
+  String get chatBlockMemory => 'Спомен';
+
+  @override
+  String get chatBlockQuestion => 'Прашање';
+
+  @override
+  String get chatBlockOpenInGoals => 'Отвори во Цели';
+
+  @override
+  String get chatBlockOpenConversation => 'Отвори разговор';
+
+  @override
+  String get chatBlockOpenInMemories => 'Отвори во Спомени';
+
+  @override
+  String get chatBlockUnavailable => 'Веќе не е достапно';
+
+  @override
+  String get chatBlockRecommendedNextSteps => 'Препорачани следни чекори';
+
+  @override
+  String get couldNotLoadMemories => 'Не можеа да се вчитаат спомените';
+
+  @override
+  String get couldNotLoadKnowledgeGraph => 'Не можеше да се вчита графот на знаење';
 }

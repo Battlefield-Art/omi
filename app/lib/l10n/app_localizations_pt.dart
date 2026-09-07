@@ -9853,12 +9853,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get accountCutoverOpenStore => 'Abrir loja';
 
   @override
-  String get chatScopeToday => 'Hoje';
-
-  @override
-  String get chatScopeThisWeek => 'Esta semana';
-
-  @override
   String chatScopeAbout(String title) {
     return 'Sobre: $title';
   }
@@ -9927,4 +9921,46 @@ class AppLocalizationsPt extends AppLocalizations {
   String conversationsNotCapturedCount(int count) {
     return 'Não capturado ($count)';
   }
+
+  @override
+  String get transcriptionNoAudio => 'A transcrição não está recebendo áudio';
+
+  @override
+  String get tapPlusToStartRecording => 'Tap + to start recording';
+
+  @override
+  String get chatBlockTask => 'Tarefa';
+
+  @override
+  String get chatBlockGoal => 'Meta';
+
+  @override
+  String get chatBlockConversation => 'Conversa';
+
+  @override
+  String get chatBlockMemory => 'Memória';
+
+  @override
+  String get chatBlockQuestion => 'Pergunta';
+
+  @override
+  String get chatBlockOpenInGoals => 'Abrir em Metas';
+
+  @override
+  String get chatBlockOpenConversation => 'Abrir conversa';
+
+  @override
+  String get chatBlockOpenInMemories => 'Abrir em Memórias';
+
+  @override
+  String get chatBlockUnavailable => 'Já não está disponível';
+
+  @override
+  String get chatBlockRecommendedNextSteps => 'Próximos passos recomendados';
+
+  @override
+  String get couldNotLoadMemories => 'Não foi possível carregar as memórias';
+
+  @override
+  String get couldNotLoadKnowledgeGraph => 'Não foi possível carregar o grafo de conhecimento';
 }

@@ -230,6 +230,12 @@ final class ScreenContextTelemetryTests: XCTestCase {
     XCTAssertTrue(snapshot.keywords.contains("Omi"))
     XCTAssertTrue(snapshot.keywords.contains("Codex"))
     XCTAssertFalse(snapshot.keywords.contains("Cursor"))
+    // The think_deeper fallback reads the same frame's text; an empty OCR result stays nil.
+    XCTAssertEqual(snapshot.visibleText, "Codex is open on the current screen")
+    XCTAssertNil(
+      PTTContextVocabularyProvider.snapshot(
+        capturedAt: Date(), settingsVocabulary: [], immediateOCRText: ""
+      ).visibleText)
   }
 
   func testPTTDoesNotCreateAnAmbientScreenContextSideChannel() throws {
@@ -386,6 +392,55 @@ final class ScreenContextTelemetryTests: XCTestCase {
         systemPromptStyle: .main,
         turnOwner: .mainChat
       ))
+  }
+
+  /// A message with an attachment is about the attachment. "Look at this page" beside a PDF used
+  /// to trip the deictic detector and capture the desktop, and a floating turn added an ambient
+  /// desktop snapshot regardless — so the model described a blank screen instead of the file.
+  func testAttachmentsAreTheSubjectUnlessTheScreenIsNamed() {
+    // Deictic cues point at the file, not the desktop.
+    XCTAssertNil(
+      ScreenContextAutoIncludePolicy.reason(
+        userText: "look at this page",
+        systemPromptStyle: .main,
+        turnOwner: .mainChat,
+        hasAttachments: true
+      ))
+    XCTAssertNil(
+      ScreenContextAutoIncludePolicy.reason(
+        userText: "look",
+        systemPromptStyle: .floating,
+        turnOwner: .floatingDefault,
+        hasAttachments: true
+      ),
+      "an attachment on a floating turn replaces the ambient desktop snapshot, it does not sit beside it")
+    XCTAssertFalse(
+      ScreenContextAutoIncludePolicy.shouldInclude(
+        userText: "what do you think of this?",
+        systemPromptStyle: .main,
+        turnOwner: .agentPill(UUID()),
+        hasAttachments: true
+      ))
+    // Naming the screen is still an explicit ask, attachment or not.
+    XCTAssertEqual(
+      ScreenContextAutoIncludePolicy.reason(
+        userText: "compare this file with what is on my screen",
+        systemPromptStyle: .main,
+        turnOwner: .mainChat,
+        hasAttachments: true
+      ),
+      .explicitScreenRequest
+    )
+    // The attachment rule is inert without an attachment.
+    XCTAssertEqual(
+      ScreenContextAutoIncludePolicy.reason(
+        userText: "look at this page",
+        systemPromptStyle: .main,
+        turnOwner: .mainChat,
+        hasAttachments: false
+      ),
+      .explicitScreenRequest
+    )
   }
 
   func testOnboardingFloatingTurnsAreExplicitScreenRequests() {
