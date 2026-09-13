@@ -23,7 +23,11 @@ from utils.conversations.transcript_hash import (
     transcript_sha256_for_binding,
 )
 from ._client import db, delete_collection_recursive, get_firestore_client, run_transactional
-from .firestore_index_registry import MCP_CONVERSATION_CARD_QUERY_SPECS, STALE_IN_PROGRESS_CONVERSATIONS_QUERY
+from .firestore_index_registry import (
+    CONVERSATIONS_BY_STATUS_FINISHED_AFTER_QUERY,
+    MCP_CONVERSATION_CARD_QUERY_SPECS,
+    STALE_IN_PROGRESS_CONVERSATIONS_QUERY,
+)
 from .firestore_read_metrics import FirestoreReadOutcome, FirestoreReadSite, record_document_read
 from .conversation_revisions import ensure_timezone_aware, firestore_revision_datetime
 from .helpers import set_data_protection_level, prepare_for_write, prepare_for_read, with_photos
@@ -48,6 +52,11 @@ logger = logging.getLogger(__name__)
 conversations_collection = 'conversations'
 
 _LIFECYCLE_FIELDS = frozenset({'status', 'discarded'})
+# Top-level fields behind the Typesense conversation projection (see
+# utils/conversations/typesense_index.py). A generic update re-syncs the index
+# only when it touches one of these roots — segment/photo/app-result writes
+# never reach Typesense, so they must not pay for it.
+_SEARCH_INDEXED_FIELD_ROOTS = frozenset({'structured', 'created_at', 'started_at', 'finished_at', 'geolocation'})
 _PUBLIC_TRANSCRIPT_MAX_STORED_BYTES = 256 * 1024
 _PUBLIC_TRANSCRIPT_MAX_DECODED_BYTES = 512 * 1024
 _PUBLIC_TRANSCRIPT_MAX_SEGMENTS = 4096
@@ -374,6 +383,36 @@ def iter_all_conversation_photos(uid: str):
             yield conversation_id, doc.to_dict()
 
 
+def _sync_conversation_search_index(uid: str, conversation_id: str) -> None:
+    """Converge the Typesense projection after a durable write (fail-open).
+
+    The import stays inside the hook on purpose: several test harnesses load
+    this module against stubbed ``utils`` packages without a real
+    ``utils.conversations`` path, and a module-top import of the projection
+    breaks them (PR #12819 round one).
+    """
+    try:
+        from utils.conversations.typesense_index import sync_conversation_index_after_write
+
+        sync_conversation_index_after_write(uid, conversation_id)
+    except Exception as exc:
+        logger.warning(
+            "conversation Typesense sync hook failed uid=%s conversation_id=%s: %s", uid, conversation_id, exc
+        )
+
+
+def _delete_conversation_search_index(uid: str, conversation_id: str) -> None:
+    """Remove one conversation from Typesense after a durable delete (fail-open)."""
+    try:
+        from utils.conversations.typesense_index import delete_conversation_index_doc
+
+        delete_conversation_index_doc(uid, conversation_id)
+    except Exception as exc:
+        logger.warning(
+            "conversation Typesense delete hook failed uid=%s conversation_id=%s: %s", uid, conversation_id, exc
+        )
+
+
 # *****************************
 # ********** CRUD *************
 # *****************************
@@ -434,6 +473,7 @@ def upsert_conversation_with_lifecycle(uid: str, conversation_data: dict):
         transaction.set(conversation_ref, write_data)
 
     _write_processing_result(transaction)
+    _sync_conversation_search_index(uid, conversation_data['id'])
 
 
 @set_data_protection_level(data_arg_name='conversation_data')
@@ -505,7 +545,14 @@ def persist_processing_result_with_lifecycle(
         transaction.set(conversation_ref, write_data, merge=True)
         return True
 
-    return _persist(transaction)
+    persisted = _persist(transaction)
+    if persisted:
+        _sync_conversation_search_index(uid, conversation_data['id'])
+    else:
+        # A processor result for a conversation whose owner is already gone:
+        # converge the search index to absence too.
+        _delete_conversation_search_index(uid, conversation_data['id'])
+    return persisted
 
 
 @set_data_protection_level(data_arg_name='conversation_data')
@@ -527,9 +574,13 @@ def create_conversation_if_absent_with_lifecycle(uid: str, conversation_data: di
     conversation_ref = user_ref.collection(conversations_collection).document(conversation_data['id'])
     try:
         conversation_ref.create(conversation_data)
-        return True
     except (AlreadyExists, Conflict):
+        # The conversation exists but may be new to the search index (writer
+        # lag, backfill gap); the read-back sync converges it either way.
+        _sync_conversation_search_index(uid, conversation_data['id'])
         return False
+    _sync_conversation_search_index(uid, conversation_data['id'])
+    return True
 
 
 @prepare_for_read(decrypt_func=_prepare_conversation_for_read)
@@ -900,6 +951,8 @@ def update_conversation(uid: str, conversation_id: str, update_data: dict) -> bo
         # audio sync take their designed gone-owner path (stop syncing, release
         # the audio budget) instead of logging an ERROR and retrying forever.
         return False
+    if _SEARCH_INDEXED_FIELD_ROOTS.intersection(str(key).split('.', 1)[0] for key in update_data):
+        _sync_conversation_search_index(uid, conversation_id)
     return True
 
 
@@ -1037,6 +1090,7 @@ def update_conversation_title(uid: str, conversation_id: str, title: str):
         return
 
     conversation_ref.update({'structured.title': title, 'user_title': title})
+    _sync_conversation_search_index(uid, conversation_id)
 
 
 def update_conversation_summary(uid: str, conversation_id: str, app_id: Optional[str], content: str) -> str:
@@ -1059,6 +1113,7 @@ def update_conversation_summary(uid: str, conversation_id: str, app_id: Optional
 
     if app_id is None:
         conversation_ref.update({'structured.overview': content})
+        _sync_conversation_search_index(uid, conversation_id)
         return 'ok'
 
     raw = doc_snapshot.to_dict() or {}
@@ -1186,6 +1241,7 @@ def delete_conversation(uid, conversation_id):
     for sub in conversation_ref.collections():
         delete_collection_recursive(sub, client=db)
     conversation_ref.delete()
+    _delete_conversation_search_index(uid, conversation_id)
 
 
 @prepare_for_read(decrypt_func=_prepare_conversation_for_read)
@@ -1433,6 +1489,37 @@ def get_stale_in_progress_conversations(uid: str, *, older_than_seconds: int, li
     return select_stale_in_progress((doc.to_dict() for doc in conversations_ref.stream()), cutoff, limit)
 
 
+@prepare_for_read(decrypt_func=_prepare_conversation_for_read)
+def get_conversations_finished_after(
+    uid: str,
+    *,
+    status: str,
+    finished_after: datetime,
+    limit: int = 25,
+    firestore_client=None,
+) -> List[Dict[str, Any]]:
+    """Conversations in ``status`` whose last activity is at or after ``finished_after``.
+
+    Duplicate-capture detection (#3244) asks for the captures that were still
+    running when this recording started; ordering by the activity clock keeps
+    the bounded page on the rows nearest that start, which are the only ones
+    that can overlap it. Photos are not loaded — the caller compares windows
+    and transcript words only.
+    """
+    client = firestore_client or get_firestore_client()
+    user_ref = client.collection('users').document(uid)
+    conversations_ref = (
+        CONVERSATIONS_BY_STATUS_FINISHED_AFTER_QUERY.build(
+            user_ref.collection(conversations_collection),
+            {'status': status, 'finished_after': finished_after},
+            field_filter_factory=FieldFilter,
+        )
+        .order_by('finished_at', direction=firestore.Query.ASCENDING)
+        .limit(limit)
+    )
+    return [doc.to_dict() for doc in conversations_ref.stream()]
+
+
 def transition_conversation_status(uid: str, conversation_id: str, status: str):
     user_ref = db.collection('users').document(uid)
     conversation_ref = user_ref.collection(conversations_collection).document(conversation_id)
@@ -1482,12 +1569,14 @@ def set_conversation_as_discarded(uid: str, conversation_id: str):
     user_ref = db.collection('users').document(uid)
     conversation_ref = user_ref.collection(conversations_collection).document(conversation_id)
     conversation_ref.update({'discarded': True})
+    _sync_conversation_search_index(uid, conversation_id)
 
 
 def restore_conversation_from_discarded(uid: str, conversation_id: str):
     user_ref = db.collection('users').document(uid)
     conversation_ref = user_ref.collection(conversations_collection).document(conversation_id)
     conversation_ref.update({'discarded': False})
+    _sync_conversation_search_index(uid, conversation_id)
 
 
 # *********************************
@@ -1622,6 +1711,7 @@ def update_conversation_finished_at(uid: str, conversation_id: str, finished_at:
     user_ref = db.collection('users').document(uid)
     conversation_ref = user_ref.collection(conversations_collection).document(conversation_id)
     conversation_ref.update({'finished_at': finished_at})
+    _sync_conversation_search_index(uid, conversation_id)
 
 
 def _invalidate_client_processing(payload: Dict[str, Any]) -> None:

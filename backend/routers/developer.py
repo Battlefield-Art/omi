@@ -46,10 +46,12 @@ from dependencies import (
     get_auth_with_conversations_read,
     get_uid_with_conversations_read,
     get_uid_with_conversations_read_ask,
+    get_uid_with_conversations_from_segments_write,
     get_uid_with_conversations_write,
     get_developer_memory_default_memory_batch_write_context,
     get_developer_memory_default_memory_read_context,
     get_developer_memory_default_memory_write_context,
+    get_developer_memory_default_memory_create_context,
     get_uid_with_action_items_read,
     get_uid_with_action_items_write,
     get_uid_with_goals_read,
@@ -481,7 +483,7 @@ def search_memories_vector(
 @router.post("/v1/dev/user/memories", response_model=DeveloperMemory, tags=["Memories"], operation_id="createMemory")
 def create_memory(
     request: CreateMemoryRequest,
-    auth_context: ProductAuthorizationContext = Depends(get_developer_memory_default_memory_write_context),
+    auth_context: ProductAuthorizationContext = Depends(get_developer_memory_default_memory_create_context),
 ):
     """
     Create a new memory for the authenticated user.
@@ -986,7 +988,7 @@ def update_action_item(
     if action_item.get('is_locked', False):
         raise HTTPException(status_code=402, detail="A paid plan is required to access this action item.")
 
-    # Build update data from non-None fields
+    # Build update data from explicitly provided fields so due_at=null can clear the date.
     update_data = {}
     if request.description is not None:
         update_data['description'] = request.description.strip()
@@ -997,7 +999,7 @@ def update_action_item(
             update_data['completed_at'] = datetime.now(timezone.utc)
         else:
             update_data['completed_at'] = None
-    if request.due_at is not None:
+    if 'due_at' in request.model_fields_set:
         update_data['due_at'] = request.due_at
 
     if not update_data:
@@ -1195,6 +1197,20 @@ class CreateConversationFromTranscriptRequest(BaseModel):
         value = value.strip()
         if not value:
             raise ValueError('client_session_id cannot be empty')
+        return value
+
+    @field_validator('started_at', 'finished_at')
+    @classmethod
+    def require_timezone_offset(cls, value: Optional[datetime]) -> Optional[datetime]:
+        """Reject offset-naive timestamps with a 422 instead of a 500.
+
+        A naive ``finished_at`` against the tz-aware ``started_at`` default (or
+        the reverse) makes the handler's ``finished_at <= started_at`` check
+        raise TypeError — an uncaught 500 on a malformed body. Both from-segments
+        routes (developer and first-party) share this model, so both get the 422.
+        """
+        if value is not None and value.tzinfo is None:
+            raise ValueError('must include a timezone offset (e.g. 2026-09-11T12:00:00Z)')
         return value
 
 
@@ -2102,7 +2118,7 @@ def create_conversation_from_segments_user(
 def create_conversation_from_segments(
     request: CreateConversationFromTranscriptRequest,
     http_request: Request,
-    uid: str = Depends(get_uid_with_conversations_write),
+    uid: str = Depends(get_uid_with_conversations_from_segments_write),
 ):
     """
     Create a new conversation from structured transcript segments.
